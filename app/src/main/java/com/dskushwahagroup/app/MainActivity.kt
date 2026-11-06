@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.sp
 private val Navy = Color(0xFF071426)
 private val Navy2 = Color(0xFF102744)
 private val Gold = Color(0xFFD7B56D)
-private val Cream = Color(0xFFF7F3E9)
 
 data class Division(val name: String, val subtitle: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
@@ -44,10 +43,11 @@ class MainActivity : ComponentActivity() {
 fun DSKApp() {
     var selected by remember { mutableStateOf("Home") }
     var activeDivision by remember { mutableStateOf<Division?>(null) }
+    var searchText by remember { mutableStateOf("") }
     val divisions = listOf(
         Division("DS Properties", "Plots • Land • Homes • Apartments", Icons.Default.HomeWork),
         Division("DS Building Materials", "Quality materials for every build", Icons.Default.Construction),
-        Division("DS Poultry Farm", "Farm fresh poultry", Icons.Default.Egg),
+        Division("DS Poultry Farm", "Farm fresh poultry", Icons.Default.Pets),
         Division("DS AQUA", "Packaged drinking water", Icons.Default.WaterDrop),
         Division("DS Smart Gadgets", "Smart tech & electronics", Icons.Default.Devices),
         Division("DS Lifestyle Brands", "Apparel & footwear", Icons.Default.Checkroom),
@@ -58,13 +58,22 @@ fun DSKApp() {
             containerColor = Navy,
             bottomBar = {
                 NavigationBar(containerColor = Navy2, contentColor = Gold) {
-                    listOf("Home", "Businesses", "About").forEach { item ->
+                    listOf(
+                        Triple("Home", Icons.Default.Home, "Home"),
+                        Triple("Categories", Icons.Default.GridView, "Categories"),
+                        Triple("Cart", Icons.Default.ShoppingCart, "Cart"),
+                        Triple("Account", Icons.Default.Person, "Account")
+                    ).forEach { item ->
                         NavigationBarItem(
-                            selected = selected == item,
-                            onClick = { selected = item; activeDivision = null },
-                            icon = { Icon(when(item) { "Home" -> Icons.Default.Home; "Businesses" -> Icons.Default.GridView; else -> Icons.Default.Info }, null) },
-                            label = { Text(item) },
-                            colors = NavigationBarItemDefaults.colors(selectedIconColor = Gold, selectedTextColor = Gold, indicatorColor = Gold.copy(alpha = .16f), unselectedIconColor = Color.LightGray, unselectedTextColor = Color.LightGray)
+                            selected = selected == item.first,
+                            onClick = { selected = item.first; activeDivision = null },
+                            icon = { Icon(item.second, contentDescription = item.first) },
+                            label = { Text(item.third) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Gold, selectedTextColor = Gold,
+                                indicatorColor = Gold.copy(alpha = .16f),
+                                unselectedIconColor = Color.LightGray, unselectedTextColor = Color.LightGray
+                            )
                         )
                     }
                 }
@@ -73,9 +82,11 @@ fun DSKApp() {
             if (activeDivision != null) {
                 DivisionDetail(activeDivision!!, Modifier.padding(padding)) { activeDivision = null }
             } else when (selected) {
-                "Businesses" -> BusinessList(divisions, Modifier.padding(padding)) { activeDivision = it }
-                "About" -> AboutScreen(Modifier.padding(padding))
-                else -> HomeScreen(divisions, Modifier.padding(padding), onExplore = { selected = "Businesses" }, onSelect = { activeDivision = it })
+                "Categories" -> BusinessList(divisions, searchText, { searchText = it }, Modifier.padding(padding)) { activeDivision = it }
+                "Cart" -> CartScreen(Modifier.padding(padding))
+                "Account" -> AccountScreen(Modifier.padding(padding))
+                else -> HomeScreen(divisions, searchText, { searchText = it }, Modifier.padding(padding),
+                    onExplore = { selected = "Categories" }, onSelect = { activeDivision = it })
             }
         }
     }
@@ -92,41 +103,81 @@ fun BrandMark(size: Int = 72) {
 }
 
 @Composable
-fun HomeScreen(divisions: List<Division>, modifier: Modifier, onExplore: () -> Unit, onSelect: (Division) -> Unit) {
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Navy).padding(18.dp)) {
+fun SearchBar(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text("Search for businesses, products & services", fontSize = 12.sp) },
+        leadingIcon = { Icon(Icons.Default.Search, null, tint = Gold) },
+        trailingIcon = { Icon(Icons.Default.Mic, null, tint = Gold) },
+        singleLine = true, shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+            focusedBorderColor = Gold, unfocusedBorderColor = Color(0xFF52647A),
+            focusedContainerColor = Navy2, unfocusedContainerColor = Navy2,
+            focusedPlaceholderColor = Color.LightGray, unfocusedPlaceholderColor = Color.LightGray,
+            cursorColor = Gold
+        )
+    )
+}
+
+@Composable
+fun HomeScreen(divisions: List<Division>, search: String, onSearch: (String) -> Unit, modifier: Modifier, onExplore: () -> Unit, onSelect: (Division) -> Unit) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Navy).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BrandMark(58)
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text("DS KUSHWAHA GROUP", color = Gold, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                Text("A GROUP OF TRUST & EXCELLENCE", color = Color.LightGray, fontSize = 9.sp, letterSpacing = 1.3.sp)
+            BrandMark(48)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("DS KUSHWAHA GROUP", color = Gold, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text("Mauranipur • Uttar Pradesh", color = Color.LightGray, fontSize = 11.sp)
             }
+            Icon(Icons.Default.NotificationsNone, null, tint = Color.White, modifier = Modifier.size(25.dp))
         }
-        Spacer(Modifier.height(22.dp))
-        Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Navy2, Color(0xFF1D3654))), RoundedCornerShape(24.dp)).padding(22.dp)) {
+        Spacer(Modifier.height(14.dp))
+        SearchBar(search, onSearch)
+        Spacer(Modifier.height(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.LocationOn, null, tint = Gold, modifier = Modifier.size(18.dp))
+            Text("Delivering services across your location", color = Color.LightGray, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(16.dp))
+        Box(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Navy2, Color(0xFF1D3654))), RoundedCornerShape(22.dp)).padding(20.dp)) {
             Column {
-                Text("WELCOME TO", color = Gold, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text("One Group.\nSeven Businesses.\nEndless Possibilities.", color = Color.White, fontSize = 29.sp, lineHeight = 35.sp, fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.height(10.dp))
-                Text("Discover our businesses and services, all in one place.", color = Color(0xFFD5DCE5), fontSize = 14.sp)
-                Spacer(Modifier.height(18.dp))
+                Text("WELCOME TO", color = Gold, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(7.dp))
+                Text("One Group.\nSeven Businesses.\nEndless Possibilities.", color = Color.White, fontSize = 27.sp, lineHeight = 33.sp, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.height(9.dp))
+                Text("Discover trusted products and services, all in one place.", color = Color(0xFFD5DCE5), fontSize = 13.sp)
+                Spacer(Modifier.height(15.dp))
                 Button(onClick = onExplore, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy), shape = RoundedCornerShape(12.dp)) {
-                    Text("EXPLORE BUSINESSES", fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp)); Icon(Icons.Default.ArrowForward, null)
+                    Text("EXPLORE NOW", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(7.dp)); Icon(Icons.Default.ArrowForward, null)
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("OUR BUSINESSES", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text("SHOP BY CATEGORY", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text("VIEW ALL", color = Gold, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onExplore))
         }
         Spacer(Modifier.height(12.dp))
-        divisions.take(4).forEach { DivisionCard(it) { onSelect(it) }; Spacer(Modifier.height(10.dp)) }
-        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            divisions.take(4).forEach { item ->
+                Column(Modifier.weight(1f).clickable { onSelect(item) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(56.dp).background(Navy2, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(item.icon, null, tint = Gold, modifier = Modifier.size(27.dp))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(item.name.removePrefix("DS "), color = Color.White, fontSize = 9.sp, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 11.sp)
+                }
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+        Text("FEATURED BUSINESSES", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(11.dp))
+        divisions.drop(4).forEach { DivisionCard(it) { onSelect(it) }; Spacer(Modifier.height(10.dp)) }
         Text("Built on trust. Growing with you.", color = Gold, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
     }
 }
 
@@ -146,13 +197,16 @@ fun DivisionCard(item: Division, onClick: () -> Unit) {
 }
 
 @Composable
-fun BusinessList(divisions: List<Division>, modifier: Modifier, onSelect: (Division) -> Unit) {
-    Column(modifier.fillMaxSize().background(Navy).padding(18.dp)) {
-        Text("Our Businesses", color = Gold, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-        Text("Seven specialised divisions under one trusted group.", color = Color.LightGray, fontSize = 13.sp)
-        Spacer(Modifier.height(18.dp))
+fun BusinessList(divisions: List<Division>, search: String, onSearch: (String) -> Unit, modifier: Modifier, onSelect: (Division) -> Unit) {
+    Column(modifier.fillMaxSize().background(Navy).padding(16.dp)) {
+        Text("All Categories", color = Gold, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+        Text("Explore all seven businesses of our group.", color = Color.LightGray, fontSize = 12.sp)
+        Spacer(Modifier.height(14.dp))
+        SearchBar(search, onSearch)
+        Spacer(Modifier.height(14.dp))
+        val filtered = divisions.filter { it.name.contains(search, true) || it.subtitle.contains(search, true) }
         LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(divisions) { item ->
+            items(filtered) { item ->
                 Column(Modifier.fillMaxWidth().height(150.dp).background(Navy2, RoundedCornerShape(18.dp)).clickable { onSelect(item) }.padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Icon(item.icon, null, tint = Gold, modifier = Modifier.size(30.dp))
                     Column {
@@ -184,6 +238,43 @@ fun DivisionDetail(item: Division, modifier: Modifier, onBack: () -> Unit) {
 }
 
 @Composable
+fun CartScreen(modifier: Modifier) {
+    Column(modifier.fillMaxSize().background(Navy).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Default.ShoppingCart, null, tint = Gold, modifier = Modifier.size(66.dp))
+        Spacer(Modifier.height(16.dp))
+        Text("Your Cart", color = Gold, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text("Your cart is empty right now.", color = Color.White, fontSize = 15.sp)
+        Text("Products and booking options will appear here as the businesses are connected.", color = Color.LightGray, fontSize = 12.sp, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+fun AccountScreen(modifier: Modifier) {
+    Column(modifier.fillMaxSize().background(Navy).padding(22.dp)) {
+        Text("My Account", color = Gold, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(22.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BrandMark(64); Spacer(Modifier.width(14.dp))
+            Column {
+                Text("Welcome to DS KUSHWAHA GROUP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("Customer account", color = Color.LightGray, fontSize = 12.sp)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        listOf("My Orders & Enquiries", "Saved Addresses", "Customer Support", "About DS KUSHWAHA GROUP").forEach {
+            Row(Modifier.fillMaxWidth().padding(vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(it, color = Color.White, modifier = Modifier.weight(1f), fontSize = 14.sp)
+                Icon(Icons.Default.ChevronRight, null, tint = Gold)
+            }
+            HorizontalDivider(color = Color.White.copy(alpha = .12f))
+        }
+        Spacer(Modifier.height(20.dp))
+        Text("Support: 9621581509  •  8933979022", color = Gold, fontSize = 13.sp)
+    }
+}
+
+@Composable
 fun AboutScreen(modifier: Modifier) {
     Column(modifier.fillMaxSize().background(Navy).padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(28.dp)); BrandMark(100); Spacer(Modifier.height(22.dp))
@@ -197,6 +288,6 @@ fun AboutScreen(modifier: Modifier) {
         Spacer(Modifier.height(20.dp))
         Text("9621581509  •  8933979022", color = Color.White, fontSize = 14.sp)
         Spacer(Modifier.height(8.dp))
-        Text("Mauranipur - 284204, Uttar Pradesh", color = Color.LightGray, fontSize = 12.sp)
+        Text("Bank of India ke bagal mein, Nadi Pull ke paas, Mauranipur - 284204", color = Color.LightGray, fontSize = 12.sp, textAlign = TextAlign.Center)
     }
 }
