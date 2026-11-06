@@ -1,4 +1,4 @@
-name: Android APK Build
+name: Android APK Build and Emulator Smoke Test
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build and verify Android APK
+  build-and-smoke-test:
+    name: Build APK and test on Android 14 emulator
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -28,6 +28,21 @@ jobs:
         run: gradle --no-daemon assembleDebug
       - name: Verify APK exists and is non-empty
         run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Android 14 emulator install and launch smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell monkey -p com.dskushwahagroup.app 1
+            sleep 15
+            adb shell pidof com.dskushwahagroup.app
+            adb logcat -d -t 2500 | grep -E "FATAL EXCEPTION|Process: com.dskushwahagroup.app" && exit 1 || true
+            test -n "$(adb shell pidof com.dskushwahagroup.app)"
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
