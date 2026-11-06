@@ -326,8 +326,8 @@ fun CheckoutScreen(cart: Map<String, Int>, modifier: Modifier, onBack: () -> Uni
                 else -> ""
             }
             if (error.isBlank()) {
-                val orderLines = cart.entries.joinToString("\\n") { "• ${it.key} × ${it.value}" }
-                val message = "DS KUSHWAHA GROUP - Order / Enquiry\\n\\nCustomer: $name\\nMobile: $phone\\nAddress: $address\\nCity: $city\\nPIN: $pincode\\nLandmark / Instructions: $notes\\n\\nItems:\\n$orderLines\\n\\nPlease confirm price and availability."
+                val orderLines = cart.entries.joinToString("\n") { "• ${it.key} × ${it.value}" }
+                val message = "DS KUSHWAHA GROUP - Order / Enquiry\n\nCustomer: $name\nMobile: $phone\nAddress: $address\nCity: $city\nPIN: $pincode\nLandmark / Instructions: $notes\n\nItems:\n$orderLines\n\nPlease confirm price and availability."
                 val url = "https://wa.me/919621581509?text=${Uri.encode(message)}"
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 onPlaceOrder()
