@@ -1,6 +1,8 @@
 package com.dskushwahagroup.app
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -22,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,7 +85,7 @@ fun DSKApp() {
             }
         ) { padding ->
             if (checkout) {
-                CheckoutScreen(cart, Modifier.padding(padding), onBack = { checkout = false }, onPlaceOrder = { checkout = false; cart = emptyMap(); selected = "Account" })
+                CheckoutScreen(cart, Modifier.padding(padding), onBack = { checkout = false }, onPlaceOrder = { checkout = false; selected = "Cart" })
             } else if (activeDivision != null) {
                 DivisionDetail(activeDivision!!, Modifier.padding(padding), onBack = { activeDivision = null }, onAdd = {
                     cart = cart + (it.name to ((cart[it.name] ?: 0) + 1))
@@ -297,6 +300,7 @@ fun CheckoutScreen(cart: Map<String, Int>, modifier: Modifier, onBack: () -> Uni
     var pincode by remember { mutableStateOf("284204") }
     var notes by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    val context = LocalContext.current
     Column(modifier.fillMaxSize().background(Navy).verticalScroll(rememberScrollState()).padding(18.dp)) {
         Text("‹  BACK TO CART", color = Gold, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
         Spacer(Modifier.height(16.dp))
@@ -321,7 +325,13 @@ fun CheckoutScreen(cart: Map<String, Int>, modifier: Modifier, onBack: () -> Uni
                 pincode.length != 6 -> "Please enter a valid 6-digit PIN code."
                 else -> ""
             }
-            if (error.isBlank()) onPlaceOrder()
+            if (error.isBlank()) {
+                val orderLines = cart.entries.joinToString("\\n") { "• ${it.key} × ${it.value}" }
+                val message = "DS KUSHWAHA GROUP - Order / Enquiry\\n\\nCustomer: $name\\nMobile: $phone\\nAddress: $address\\nCity: $city\\nPIN: $pincode\\nLandmark / Instructions: $notes\\n\\nItems:\\n$orderLines\\n\\nPlease confirm price and availability."
+                val url = "https://wa.me/919621581509?text=${Uri.encode(message)}"
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                onPlaceOrder()
+            }
         }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy)) {
             Text("SUBMIT ORDER / ENQUIRY", fontWeight = FontWeight.ExtraBold)
         }
