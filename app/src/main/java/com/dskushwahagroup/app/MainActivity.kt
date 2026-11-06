@@ -44,6 +44,8 @@ fun DSKApp() {
     var selected by remember { mutableStateOf("Home") }
     var activeDivision by remember { mutableStateOf<Division?>(null) }
     var searchText by remember { mutableStateOf("") }
+    var cart by remember { mutableStateOf(mapOf<String, Int>()) }
+    var checkout by remember { mutableStateOf(false) }
     val divisions = listOf(
         Division("DS Properties", "Plots • Land • Homes • Apartments", Icons.Default.HomeWork),
         Division("DS Building Materials", "Quality materials for every build", Icons.Default.Construction),
@@ -79,11 +81,21 @@ fun DSKApp() {
                 }
             }
         ) { padding ->
-            if (activeDivision != null) {
-                DivisionDetail(activeDivision!!, Modifier.padding(padding)) { activeDivision = null }
+            if (checkout) {
+                CheckoutScreen(cart, Modifier.padding(padding), onBack = { checkout = false }, onPlaceOrder = { checkout = false; cart = emptyMap(); selected = "Account" })
+            } else if (activeDivision != null) {
+                DivisionDetail(activeDivision!!, Modifier.padding(padding), onBack = { activeDivision = null }, onAdd = {
+                    cart = cart + (it.name to ((cart[it.name] ?: 0) + 1))
+                    activeDivision = null
+                    selected = "Cart"
+                })
             } else when (selected) {
                 "Categories" -> BusinessList(divisions, searchText, { searchText = it }, Modifier.padding(padding)) { activeDivision = it }
-                "Cart" -> CartScreen(Modifier.padding(padding))
+                "Cart" -> CartScreen(cart, Modifier.padding(padding),
+                    onIncrease = { name -> cart = cart + (name to ((cart[name] ?: 0) + 1)) },
+                    onDecrease = { name -> val n = (cart[name] ?: 0) - 1; cart = if (n <= 0) cart - name else cart + (name to n) },
+                    onRemove = { name -> cart = cart - name },
+                    onCheckout = { checkout = true })
                 "Account" -> AccountScreen(Modifier.padding(padding))
                 else -> HomeScreen(divisions, searchText, { searchText = it }, Modifier.padding(padding),
                     onExplore = { selected = "Categories" }, onSelect = { activeDivision = it })
@@ -220,7 +232,7 @@ fun BusinessList(divisions: List<Division>, search: String, onSearch: (String) -
 }
 
 @Composable
-fun DivisionDetail(item: Division, modifier: Modifier, onBack: () -> Unit) {
+fun DivisionDetail(item: Division, modifier: Modifier, onBack: () -> Unit, onAdd: (Division) -> Unit) {
     Column(modifier.fillMaxSize().background(Navy).padding(20.dp)) {
         Text("‹  BACK", color = Gold, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
         Spacer(Modifier.height(34.dp))
@@ -234,19 +246,97 @@ fun DivisionDetail(item: Division, modifier: Modifier, onBack: () -> Unit) {
         Text("Explore products and services from DS KUSHWAHA GROUP. For enquiries and assistance, please contact our team.", color = Color.LightGray, fontSize = 14.sp, lineHeight = 22.sp)
         Spacer(Modifier.height(22.dp))
         Text("Contact: 9621581509  •  8933979022", color = Gold, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = { onAdd(item) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy)) {
+            Icon(Icons.Default.AddShoppingCart, null); Spacer(Modifier.width(8.dp)); Text("ADD TO CART", fontWeight = FontWeight.Bold)
+        }
     }
 }
 
 @Composable
-fun CartScreen(modifier: Modifier) {
-    Column(modifier.fillMaxSize().background(Navy).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(Icons.Default.ShoppingCart, null, tint = Gold, modifier = Modifier.size(66.dp))
-        Spacer(Modifier.height(16.dp))
-        Text("Your Cart", color = Gold, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Text("Your cart is empty right now.", color = Color.White, fontSize = 15.sp)
-        Text("Products and booking options will appear here as the businesses are connected.", color = Color.LightGray, fontSize = 12.sp, textAlign = TextAlign.Center)
+fun CartScreen(cart: Map<String, Int>, modifier: Modifier, onIncrease: (String) -> Unit, onDecrease: (String) -> Unit, onRemove: (String) -> Unit, onCheckout: () -> Unit) {
+    Column(modifier.fillMaxSize().background(Navy).padding(18.dp)) {
+        Text("My Cart", color = Gold, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+        Text("${cart.values.sum()} item(s)", color = Color.LightGray, fontSize = 12.sp)
+        Spacer(Modifier.height(18.dp))
+        if (cart.isEmpty()) {
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(Icons.Default.ShoppingCart, null, tint = Gold, modifier = Modifier.size(64.dp))
+                Spacer(Modifier.height(14.dp))
+                Text("Your cart is empty", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Browse a business category and add an item or service.", color = Color.LightGray, fontSize = 12.sp, textAlign = TextAlign.Center)
+            }
+        } else {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                cart.forEach { (name, qty) ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp).background(Navy2, RoundedCornerShape(14.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Price on request", color = Gold, fontSize = 11.sp)
+                        }
+                        IconButton(onClick = { onDecrease(name) }) { Icon(Icons.Default.RemoveCircleOutline, null, tint = Gold) }
+                        Text(qty.toString(), color = Color.White, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { onIncrease(name) }) { Icon(Icons.Default.AddCircleOutline, null, tint = Gold) }
+                        IconButton(onClick = { onRemove(name) }) { Icon(Icons.Default.DeleteOutline, null, tint = Color.LightGray) }
+                    }
+                }
+            }
+            Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy), shape = RoundedCornerShape(13.dp)) {
+                Text("PROCEED TO CHECKOUT", fontWeight = FontWeight.ExtraBold)
+            }
+        }
     }
+}
+
+@Composable
+fun CheckoutScreen(cart: Map<String, Int>, modifier: Modifier, onBack: () -> Unit, onPlaceOrder: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("Mauranipur") }
+    var pincode by remember { mutableStateOf("284204") }
+    var notes by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    Column(modifier.fillMaxSize().background(Navy).verticalScroll(rememberScrollState()).padding(18.dp)) {
+        Text("‹  BACK TO CART", color = Gold, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBack))
+        Spacer(Modifier.height(16.dp))
+        Text("Delivery Details", color = Gold, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+        Text("Please enter the customer's delivery/contact information.", color = Color.LightGray, fontSize = 12.sp)
+        Spacer(Modifier.height(14.dp))
+        CheckoutField("Customer name *", name) { name = it }
+        CheckoutField("Mobile number *", phone) { phone = it.filter(Char::isDigit).take(10) }
+        CheckoutField("Full delivery address *", address) { address = it }
+        CheckoutField("City / Town *", city) { city = it }
+        CheckoutField("PIN code *", pincode) { pincode = it.filter(Char::isDigit).take(6) }
+        CheckoutField("Landmark / delivery instructions (optional)", notes) { notes = it }
+        Spacer(Modifier.height(12.dp))
+        Text("Order summary: ${cart.values.sum()} item(s)", color = Color.White, fontWeight = FontWeight.Bold)
+        Text("Final price and delivery availability will be confirmed by our team.", color = Color.LightGray, fontSize = 11.sp)
+        if (error.isNotBlank()) Text(error, color = Color(0xFFFF8A80), fontSize = 12.sp)
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = {
+            error = when {
+                name.isBlank() || address.isBlank() || city.isBlank() -> "Please fill all required details."
+                phone.length != 10 -> "Please enter a valid 10-digit mobile number."
+                pincode.length != 6 -> "Please enter a valid 6-digit PIN code."
+                else -> ""
+            }
+            if (error.isBlank()) onPlaceOrder()
+        }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Navy)) {
+            Text("SUBMIT ORDER / ENQUIRY", fontWeight = FontWeight.ExtraBold)
+        }
+        Spacer(Modifier.height(20.dp))
+    }
+}
+
+@Composable
+fun CheckoutField(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp), singleLine = label != "Full delivery address *" && !label.startsWith("Landmark"), colors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+        focusedBorderColor = Gold, unfocusedBorderColor = Color(0xFF52647A),
+        focusedLabelColor = Gold, unfocusedLabelColor = Color.LightGray,
+        cursorColor = Gold, focusedContainerColor = Navy2, unfocusedContainerColor = Navy2
+    ))
 }
 
 @Composable
